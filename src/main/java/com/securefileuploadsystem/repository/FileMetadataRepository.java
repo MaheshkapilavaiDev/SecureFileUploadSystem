@@ -13,4 +13,6 @@ public interface FileMetadataRepository extends JpaRepository<FileMetadata, Long
 	boolean existsByChecksum(String checksum);
 
 	Optional<FileMetadata> findByFileId(String fileId);
+	
+	
 }
