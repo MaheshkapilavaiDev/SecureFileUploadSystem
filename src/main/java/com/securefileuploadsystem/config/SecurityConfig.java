@@ -32,6 +32,10 @@ public class SecurityConfig {
                         "/api/auth/**")
                 .permitAll()
 
+                .requestMatchers(
+                        "/api/files/download")
+                .permitAll()
+
                 .anyRequest()
                 .authenticated());
 

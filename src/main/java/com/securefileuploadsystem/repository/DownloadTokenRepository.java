@@ -1,0 +1,18 @@
+package com.securefileuploadsystem.repository;
+
+import java.util.Optional;
+
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.stereotype.Repository;
+
+import com.securefileuploadsystem.entity.DownloadToken;
+
+@Repository
+public interface DownloadTokenRepository
+        extends JpaRepository<
+                DownloadToken,
+                Long> {
+
+    Optional<DownloadToken>
+        findByToken(String token);
+}

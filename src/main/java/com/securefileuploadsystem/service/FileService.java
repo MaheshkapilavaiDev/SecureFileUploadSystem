@@ -7,7 +7,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
+import com.securefileuploadsystem.entity.DownloadToken;
 import com.securefileuploadsystem.entity.FileMetadata;
+import com.securefileuploadsystem.repository.DownloadTokenRepository;
 import com.securefileuploadsystem.repository.FileMetadataRepository;
 import com.securefileuploadsystem.util.ChecksumUtil;
 import com.securefileuploadsystem.util.FileValidationUtil;
@@ -20,7 +22,6 @@ import java.nio.file.Paths;
 
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.core.io.Resource;
-import org.springframework.core.io.UrlResource;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 
@@ -38,6 +39,10 @@ public class FileService {
 	
 	@Autowired
 	private EncryptionService encryptionService;
+	
+	
+	@Autowired
+	private DownloadTokenRepository tokenRepo;
 	
 	@Transactional
 	public FileMetadata uploadFile(MultipartFile file) throws Exception {
@@ -151,5 +156,56 @@ public class FileService {
 	            fileId);
 
 	    return "File deleted successfully";
+	}
+	
+	public String generateDownloadUrl(
+	        String fileId) {
+
+	    DownloadToken token =
+	            new DownloadToken();
+
+	    token.setToken(
+	            UUID.randomUUID().toString());
+
+	    token.setFileId(fileId);
+
+	    token.setExpiryTime(
+	            LocalDateTime.now()
+	                    .plusMinutes(5));
+
+	    tokenRepo.save(token);
+
+	    return token.getToken();
+	}
+	
+	public Resource downloadUsingToken(String token)
+	        throws Exception {
+
+	    DownloadToken downloadToken =
+	            tokenRepo.findByToken(token)
+	            .orElseThrow(() ->
+	                    new RuntimeException("Invalid Token"));
+
+	    if (downloadToken.getExpiryTime()
+	            .isBefore(LocalDateTime.now())) {
+
+	        throw new RuntimeException(
+	                "Download URL Expired");
+	    }
+
+	    return downloadFile(
+	            downloadToken.getFileId());
+	}
+	public FileMetadata getMetadataByToken(String token) {
+
+	    DownloadToken downloadToken =
+	            tokenRepo.findByToken(token)
+	                    .orElseThrow(() ->
+	                            new RuntimeException("Invalid Token"));
+
+	    return metadataRepo
+	            .findByFileId(downloadToken.getFileId())
+	            .orElseThrow(() ->
+	                    new RuntimeException("File Not Found"));
 	}
 }

@@ -56,4 +56,42 @@ public class FileController {
 	    return ResponseEntity.ok(
 	            fileService.deleteFile(fileId));
 	}
+	
+	@GetMapping("/{fileId}/generate-url")
+	public ResponseEntity<String>
+	generateUrl(
+	        @PathVariable String fileId) {
+
+	    String token =
+	            fileService
+	                    .generateDownloadUrl(
+	                            fileId);
+
+	    return ResponseEntity.ok(
+	            "http://localhost:8080/api/files/download?token="
+	                    + token);
+	}
+	
+	@GetMapping("/download")
+	public ResponseEntity<Resource> download(
+	        @RequestParam String token)
+	        throws Exception {
+
+	    Resource resource =
+	            fileService.downloadUsingToken(token);
+
+	    FileMetadata metadata =
+	            fileService.getMetadataByToken(token);
+
+	    return ResponseEntity.ok()
+	            .contentType(
+	                    MediaType.parseMediaType(
+	                            metadata.getContentType()))
+	            .header(
+	                    HttpHeaders.CONTENT_DISPOSITION,
+	                    "attachment; filename=\""
+	                            + metadata.getOriginalFileName()
+	                            + "\"")
+	            .body(resource);
+	}
 }
