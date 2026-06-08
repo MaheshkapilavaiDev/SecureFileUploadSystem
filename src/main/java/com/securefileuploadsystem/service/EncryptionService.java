@@ -28,4 +28,24 @@ public class EncryptionService {
 
         return cipher.doFinal(data);
     }
+    
+    public byte[] decrypt(
+            byte[] encryptedBytes)
+            throws Exception {
+
+        SecretKeySpec key =
+                new SecretKeySpec(
+                        KEY.getBytes(),
+                        "AES");
+
+        Cipher cipher =
+                Cipher.getInstance("AES");
+
+        cipher.init(
+                Cipher.DECRYPT_MODE,
+                key);
+
+        return cipher.doFinal(
+                encryptedBytes);
+    }
 }

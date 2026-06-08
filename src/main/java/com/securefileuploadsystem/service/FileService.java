@@ -18,8 +18,11 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 
+import org.springframework.core.io.ByteArrayResource;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.UrlResource;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 
 @Service
 public class FileService {
@@ -32,6 +35,10 @@ public class FileService {
 	
 	@Autowired
 	private AuditLogService auditService;
+	
+	@Autowired
+	private EncryptionService encryptionService;
+	
 	@Transactional
 	public FileMetadata uploadFile(MultipartFile file) throws Exception {
 
@@ -43,7 +50,16 @@ public class FileService {
 			throw new RuntimeException("Duplicate file");
 		}
 
-		String storedFileName = storageService.saveFile(file);
+		//String storedFileName = storageService.saveFile(file);
+		
+		byte[] encryptedBytes =
+		        encryptionService.encrypt(
+		                file.getBytes());
+
+		String storedFileName =
+		        storageService.saveEncryptedFile(
+		                encryptedBytes,
+		                file.getOriginalFilename());
 
 		FileMetadata metadata = new FileMetadata();
 
@@ -59,9 +75,19 @@ public class FileService {
 
 		metadata.setChecksum(checksum);
 
-		metadata.setEncrypted(false);
+		metadata.setEncrypted(true);
 
-		metadata.setUploadedBy("Mahesh");
+		//metadata.setUploadedBy("Mahesh");
+		
+		Authentication authentication =
+		        SecurityContextHolder
+		                .getContext()
+		                .getAuthentication();
+
+		String username =
+		        authentication.getName();
+		
+		metadata.setUploadedBy(username);
 
 		metadata.setUploadTime(LocalDateTime.now());
 		
@@ -85,13 +111,20 @@ public class FileService {
 
 		Path path = Paths.get("uploads").resolve(metadata.getStoredFileName());
 
-		Resource resource = new UrlResource(path.toUri());
+		if (!Files.exists(path)) {
+	        throw new RuntimeException(
+	                "File not found on disk");
+	    }
 
-		if (!resource.exists()) {
-			throw new RuntimeException("File not found on disk");
-		}
+		 byte[] encryptedBytes =
+		            Files.readAllBytes(path);
 
-		return resource;
+		    byte[] decryptedBytes =
+		            encryptionService.decrypt(
+		                    encryptedBytes);
+
+		    return new ByteArrayResource(
+		            decryptedBytes);
 	}
 	
 	@Transactional

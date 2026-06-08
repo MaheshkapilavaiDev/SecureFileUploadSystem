@@ -6,23 +6,27 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.UUID;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
-import org.springframework.web.multipart.MultipartFile;
 
 @Service
 public class StorageService {
+	
+	@Autowired
+	private EncryptionService encryptionService;
 
     private final String UPLOAD_DIR =
             "uploads/";
 
-    public String saveFile(
-            MultipartFile file)
+    public String saveEncryptedFile(
+    		 byte[] encryptedBytes,
+             String originalFileName)
             throws IOException {
 
         String storedFileName =
                 UUID.randomUUID()
                 + "_"
-                + file.getOriginalFilename();
+                + originalFileName;
 
         Path path = Paths.get(
                 UPLOAD_DIR,
@@ -33,7 +37,7 @@ public class StorageService {
 
         Files.write(
                 path,
-                file.getBytes());
+                encryptedBytes);
 
         return storedFileName;
     }
