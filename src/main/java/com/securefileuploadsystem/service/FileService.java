@@ -40,6 +40,9 @@ public class FileService {
 	@Autowired
 	private EncryptionService encryptionService;
 	
+	@Autowired
+	private AsyncFileProcessingService asyncService;
+	
 	
 	@Autowired
 	private DownloadTokenRepository tokenRepo;
@@ -101,7 +104,11 @@ public class FileService {
 		        "UPLOAD",
 		        metadata.getFileId());
 
-		return metadataRepo.save(metadata);
+		FileMetadata saved =metadataRepo.save(metadata);
+		
+		asyncService.processFile(saved.getFileId());
+		
+		return saved;
 	}
 
 	public Resource downloadFile(String fileId) throws Exception {

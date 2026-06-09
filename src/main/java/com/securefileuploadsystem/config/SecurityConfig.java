@@ -33,7 +33,7 @@ public class SecurityConfig {
                 .permitAll()
 
                 .requestMatchers(
-                        "/api/files/download")
+                        "/api/files/download","/actuator/**")
                 .permitAll()
 
                 .anyRequest()
