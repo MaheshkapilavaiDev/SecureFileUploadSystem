@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
+import com.securefileuploadsystem.dto.FileDownloadResponse;
 import com.securefileuploadsystem.entity.FileMetadata;
 import com.securefileuploadsystem.repository.FileMetadataRepository;
 import com.securefileuploadsystem.service.FileService;
@@ -37,9 +38,9 @@ public class FileController {
 
 	@GetMapping("/download/{fileId}")
 	public ResponseEntity<Resource> downloadFile(@PathVariable String fileId) throws Exception {
-
-		FileMetadata metadata = metadataRepo.findByFileId(fileId)
-				.orElseThrow(() -> new RuntimeException("File Not Found"));
+		
+		FileMetadata metadata =
+	            fileService.getFileMetadata(fileId);
 
 		Resource resource = fileService.downloadFile(fileId);
 
@@ -77,21 +78,20 @@ public class FileController {
 	        @RequestParam String token)
 	        throws Exception {
 
-	    Resource resource =
+		FileDownloadResponse  response =
 	            fileService.downloadUsingToken(token);
 
-	    FileMetadata metadata =
-	            fileService.getMetadataByToken(token);
-
-	    return ResponseEntity.ok()
+		return ResponseEntity.ok()
 	            .contentType(
 	                    MediaType.parseMediaType(
-	                            metadata.getContentType()))
+	                            response.getMetadata()
+	                                    .getContentType()))
 	            .header(
 	                    HttpHeaders.CONTENT_DISPOSITION,
 	                    "attachment; filename=\""
-	                            + metadata.getOriginalFileName()
+	                            + response.getMetadata()
+	                                    .getOriginalFileName()
 	                            + "\"")
-	            .body(resource);
+	            .body(response.getResource());
 	}
 }

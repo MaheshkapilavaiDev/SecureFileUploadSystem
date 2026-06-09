@@ -4,9 +4,11 @@ import java.time.LocalDateTime;
 import java.util.UUID;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cache.CacheManager;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
+import com.securefileuploadsystem.dto.FileDownloadResponse;
 import com.securefileuploadsystem.entity.DownloadToken;
 import com.securefileuploadsystem.entity.FileMetadata;
 import com.securefileuploadsystem.repository.DownloadTokenRepository;
@@ -46,6 +48,12 @@ public class FileService {
 	
 	@Autowired
 	private DownloadTokenRepository tokenRepo;
+	
+	@Autowired
+	private CacheManager cacheManager;
+	
+	@Autowired
+	private CacheMetadataService cacheMetaDataService;
 	
 	@Transactional
 	public FileMetadata uploadFile(MultipartFile file) throws Exception {
@@ -113,8 +121,11 @@ public class FileService {
 
 	public Resource downloadFile(String fileId) throws Exception {
 
-		FileMetadata metadata = metadataRepo.findByFileId(fileId)
-				.orElseThrow(() -> new RuntimeException("File Not Found"));
+		//FileMetadata metadata = metadataRepo.findByFileId(fileId)
+			//	.orElseThrow(() -> new RuntimeException("File Not Found"));
+		
+		FileMetadata metadata =
+				cacheMetaDataService.getFileMetadata(fileId);
 		
 		auditService.logAction(
 		        metadata.getUploadedBy(),
@@ -143,11 +154,14 @@ public class FileService {
 	public String deleteFile(String fileId)
 	        throws Exception {
 
-	    FileMetadata metadata =
+	   /* FileMetadata metadata =
 	            metadataRepo.findByFileId(fileId)
 	            .orElseThrow(() ->
 	                    new RuntimeException(
-	                            "File Not Found"));
+	                            "File Not Found"));*/
+		FileMetadata metadata =
+	            cacheMetaDataService
+	                    .getFileMetadata(fileId);
 
 	    Path path = Paths.get("uploads")
 	            .resolve(
@@ -156,6 +170,8 @@ public class FileService {
 	    Files.deleteIfExists(path);
 
 	    metadataRepo.delete(metadata);
+	    
+	    cacheMetaDataService.removeFromCache(fileId);
 
 	    auditService.logAction(
 	            metadata.getUploadedBy(),
@@ -185,23 +201,37 @@ public class FileService {
 	    return token.getToken();
 	}
 	
-	public Resource downloadUsingToken(String token)
+	public FileDownloadResponse  downloadUsingToken(String token)
 	        throws Exception {
 
 	    DownloadToken downloadToken =
 	            tokenRepo.findByToken(token)
 	            .orElseThrow(() ->
 	                    new RuntimeException("Invalid Token"));
-
+	    
 	    if (downloadToken.getExpiryTime()
 	            .isBefore(LocalDateTime.now())) {
 
 	        throw new RuntimeException(
 	                "Download URL Expired");
 	    }
+	    
+	    FileMetadata metadata =
+	            cacheMetaDataService.getFileMetadata(
+	                    downloadToken.getFileId());
+	    
+	    Resource resource =
+	            downloadFile(downloadToken.getFileId());
+	    
 
-	    return downloadFile(
-	            downloadToken.getFileId());
+	    FileDownloadResponse response =
+	            new FileDownloadResponse();
+
+	    response.setMetadata(metadata);
+	    response.setResource(resource);
+
+	    return response;
+
 	}
 	public FileMetadata getMetadataByToken(String token) {
 
@@ -210,9 +240,13 @@ public class FileService {
 	                    .orElseThrow(() ->
 	                            new RuntimeException("Invalid Token"));
 
-	    return metadataRepo
-	            .findByFileId(downloadToken.getFileId())
-	            .orElseThrow(() ->
-	                    new RuntimeException("File Not Found"));
+	    return cacheMetaDataService
+	            .getFileMetadata(downloadToken.getFileId());
 	}
+	
+	public FileMetadata getFileMetadata(String fileId) {
+
+	    return cacheMetaDataService.getFileMetadata(fileId);
+	}
+	
 }
