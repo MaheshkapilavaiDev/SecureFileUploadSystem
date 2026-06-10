@@ -16,6 +16,8 @@ import com.securefileuploadsystem.repository.FileMetadataRepository;
 import com.securefileuploadsystem.util.ChecksumUtil;
 import com.securefileuploadsystem.util.FileValidationUtil;
 
+import io.github.bucket4j.Bucket;
+import io.github.bucket4j.ConsumptionProbe;
 import jakarta.transaction.Transactional;
 
 import java.nio.file.Files;
@@ -50,6 +52,9 @@ public class FileService {
 	private DownloadTokenRepository tokenRepo;
 	
 	@Autowired
+	private RateLimitService rateLimitService;
+	
+	@Autowired
 	private CacheManager cacheManager;
 	
 	@Autowired
@@ -57,6 +62,30 @@ public class FileService {
 	
 	@Transactional
 	public FileMetadata uploadFile(MultipartFile file) throws Exception {
+		
+		Authentication authentication =
+	            SecurityContextHolder
+	                    .getContext()
+	                    .getAuthentication();
+
+	    String username =
+	            authentication.getName();
+
+	    Bucket bucket =
+	            rateLimitService.resolveBucket(username);
+
+	    ConsumptionProbe probe =
+	            bucket.tryConsumeAndReturnRemaining(1);
+
+	    System.out.println(
+	            "Consumed = " + probe.isConsumed()
+	            + ", Remaining = "
+	            + probe.getRemainingTokens());
+
+	    if (!probe.isConsumed()) {
+	        throw new RuntimeException(
+	                "Upload limit exceeded");
+	    }
 
 		FileValidationUtil.validateFile(file);
 
@@ -94,14 +123,6 @@ public class FileService {
 		metadata.setEncrypted(true);
 
 		//metadata.setUploadedBy("Mahesh");
-		
-		Authentication authentication =
-		        SecurityContextHolder
-		                .getContext()
-		                .getAuthentication();
-
-		String username =
-		        authentication.getName();
 		
 		metadata.setUploadedBy(username);
 
